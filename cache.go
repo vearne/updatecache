@@ -33,8 +33,8 @@ func (c *LocalCache) Set(key any, value any, d time.Duration) {
 	} else {
 		item.cond.L.Lock()
 		item.value = value
-		item.cond.L.Unlock()
 		atomic.AddUint32(&item.version, 1)
+		item.cond.L.Unlock()
 	}
 
 	target := atomic.LoadUint32(&item.version)
@@ -93,6 +93,7 @@ func (c *LocalCache) UpdateAfter(key any, d time.Duration, f GetValueFunc) {
 
 		item.cond.L.Lock()
 		item.value = f()
+		atomic.AddUint32(&item.version, 1)
 		slog.Debug("item:%p, f():%v", item, item.value)
 		item.cond.L.Unlock()
 
