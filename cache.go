@@ -1,6 +1,7 @@
 package updatecache
 
 import (
+	slog "github.com/vearne/simplelog"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -27,7 +28,8 @@ func (c *LocalCache) Set(key any, value any, d time.Duration) {
 
 	item, ok := c.m[key]
 	if !ok {
-		c.m[key] = NewItem(key, value)
+		item = NewItem(key, value)
+		c.m[key] = item
 	} else {
 		item.cond.L.Lock()
 		item.value = value
@@ -64,6 +66,7 @@ func (c *LocalCache) Get(key any) any {
 			item.cond.Wait()
 		}
 	}
+	slog.Debug("Get-item:%p", item)
 	return item.value
 }
 
@@ -78,8 +81,10 @@ func (c *LocalCache) UpdateAfter(key any, d time.Duration, f GetValueFunc) {
 
 	target := atomic.LoadUint32(&item.version)
 	time.AfterFunc(d, func() {
+		slog.Debug("[start]update item after %v", d)
 		version := atomic.LoadUint32(&item.version)
 		// item may be updated or refreshed
+		slog.Debug("target:%v, version:%v", target, version)
 		if target < version {
 			return
 		}
@@ -88,10 +93,12 @@ func (c *LocalCache) UpdateAfter(key any, d time.Duration, f GetValueFunc) {
 
 		item.cond.L.Lock()
 		item.value = f()
+		slog.Debug("item:%p, f():%v", item, item.value)
 		item.cond.L.Unlock()
 
 		// fresh
 		item.freshFlag.Set(true)
 		item.cond.Broadcast()
+		slog.Debug("[end]update item after %v", d)
 	})
 }
