@@ -61,6 +61,11 @@ func (c *LocalCache) Set(key any, value any, d time.Duration) {
 	}
 }
 
+func (c *LocalCache) Contains(key any) (ok bool) {
+	_, ok = c.getItem(key)
+	return ok
+}
+
 func (c *LocalCache) getItem(key any) (item *Item, ok bool) {
 	c.dataMu.RLock()
 	item, ok = c.m[key]
