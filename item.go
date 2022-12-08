@@ -10,9 +10,9 @@ type Item struct {
 	value any
 	cond  *sync.Cond
 	// data version
-	version        uint32
-	freshFlag      bool
-	hasUpdateAfter *AtomicBool
+	version   uint32
+	freshFlag bool
+	cf        CalcTimeForNextUpdateFunc
 }
 
 func NewItem(key, value any) *Item {
@@ -22,6 +22,5 @@ func NewItem(key, value any) *Item {
 	atomic.StoreUint32(&item.version, 0)
 	item.cond = sync.NewCond(new(sync.Mutex))
 	item.freshFlag = true
-	item.hasUpdateAfter = NewAtomicBool(false)
 	return item
 }

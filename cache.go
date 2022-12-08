@@ -9,6 +9,9 @@ import (
 
 type GetValueFunc func() any
 
+//Calculate the waiting time until the next data update
+type CalcTimeForNextUpdateFunc func(value any) time.Duration
+
 type LocalCache struct {
 	m          map[any]*Item
 	dataMu     sync.RWMutex
@@ -37,7 +40,10 @@ func (c *LocalCache) Set(key any, value any, d time.Duration) {
 		item.cond.L.Lock()
 		item.value = value
 		atomic.AddUint32(&item.version, 1)
+		// fresh
+		item.freshFlag = true
 		item.cond.L.Unlock()
+		item.cond.Broadcast()
 	}
 
 	if d >= 0 {
@@ -62,6 +68,28 @@ func (c *LocalCache) getItem(key any) (item *Item, ok bool) {
 	return item, ok
 }
 
+func (c *LocalCache) Size() int {
+	c.dataMu.RLock()
+	defer c.dataMu.RUnlock()
+	return len(c.m)
+}
+
+func (c *LocalCache) Remove(key any) {
+	c.dataMu.Lock()
+	defer c.dataMu.Unlock()
+	delete(c.m, key)
+}
+
+func (c *LocalCache) StopLaterUpdate(key any) {
+	item, ok := c.getItem(key)
+	if !ok {
+		return
+	}
+
+	item.cf = nil
+	atomic.AddUint32(&item.version, 1)
+}
+
 func (c *LocalCache) Get(key any) any {
 	item, ok := c.getItem(key)
 	if !ok {
@@ -79,34 +107,42 @@ func (c *LocalCache) Get(key any) any {
 	return item.value
 }
 
-func (c *LocalCache) HasUpdateAfter(key any) bool {
-	c.dataMu.RLock()
-	item, ok := c.m[key]
-	c.dataMu.RUnlock()
+/*
+	1. Calculate the waiting time until the next data update with CalcTimeForNextUpdateFunc
+	2. then use GetValueFunc to get value
+	3. update item
+*/
+func (c *LocalCache) DynamicUpdateLater(key any, cf CalcTimeForNextUpdateFunc, gf GetValueFunc) {
+	item, ok := c.getItem(key)
 	if !ok {
-		return true
+		return
 	}
-	return item.hasUpdateAfter.IsTrue()
+	item.cf = cf
+	c.UpdateLater(key, cf(item.value), gf)
 }
 
-// use f to get value
-func (c *LocalCache) UpdateAfter(key any, d time.Duration, f GetValueFunc) {
-	c.dataMu.RLock()
-	item, ok := c.m[key]
-	c.dataMu.RUnlock()
+//  1. wait d
+//  2. then use GetValueFunc to get value
+//  3. update item
+func (c *LocalCache) UpdateLater(key any, d time.Duration, getValueFunc GetValueFunc) {
+	if d < 0 {
+		return
+	}
+
+	item, ok := c.getItem(key)
 	if !ok {
 		return
 	}
-
-	if item.hasUpdateAfter.IsTrue() {
-		return
-	}
-
-	item.hasUpdateAfter.Set(true)
 
 	target := atomic.LoadUint32(&item.version)
 	time.AfterFunc(d, func() {
 		slog.Debug("[start]update item after %v", d)
+		item, ok := c.getItem(key)
+		// item may be removed
+		if !ok {
+			return
+		}
+
 		version := atomic.LoadUint32(&item.version)
 		// item may be updated or refreshed
 		slog.Debug("target:%v, version:%v", target, version)
@@ -118,7 +154,7 @@ func (c *LocalCache) UpdateAfter(key any, d time.Duration, f GetValueFunc) {
 		item.freshFlag = false
 		item.cond.L.Unlock()
 
-		value := f()
+		value := getValueFunc()
 
 		item.cond.L.Lock()
 		item.value = value
@@ -129,6 +165,12 @@ func (c *LocalCache) UpdateAfter(key any, d time.Duration, f GetValueFunc) {
 		item.cond.L.Unlock()
 
 		item.cond.Broadcast()
+
+		// plan for next update
+		if item.cf != nil {
+			c.UpdateLater(key, item.cf(value), getValueFunc)
+		}
+
 		slog.Debug("[end]update item after %v", d)
 	})
 }

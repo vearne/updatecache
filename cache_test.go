@@ -17,7 +17,7 @@ func TestSetGet(t *testing.T) {
 	key := "aaa"
 	cache := NewCache(true)
 	cache.Set(key, 1, 300*time.Millisecond)
-	cache.UpdateAfter(key, 100*time.Millisecond, func() any {
+	cache.UpdateLater(key, 100*time.Millisecond, func() any {
 		slog.Debug("get value")
 		return 2
 	})
@@ -55,7 +55,7 @@ func TestVersion2(t *testing.T) {
 	key := "aaa"
 	cache := NewCache(true)
 	cache.Set(key, 1, -1)
-	cache.UpdateAfter(key, 100*time.Millisecond, func() any {
+	cache.UpdateLater(key, 100*time.Millisecond, func() any {
 		slog.Debug("--TestVersion2--")
 		return 2
 	})
@@ -76,8 +76,8 @@ func TestCancelUpdateAfter(t *testing.T) {
 	key := "aaa"
 	cache := NewCache(true)
 	cache.Set(key, 1, -1)
-	cache.UpdateAfter(key, 200*time.Millisecond, func() any {
-		slog.Debug("--TestCancelUpdateAfter--")
+	cache.UpdateLater(key, 200*time.Millisecond, func() any {
+		slog.Debug("--TestCancelUpdateLater--")
 		return 2
 	})
 	go func() {
@@ -96,7 +96,7 @@ func TestUpdateWait(t *testing.T) {
 	key := "aaa"
 	cache := NewCache(true)
 	cache.Set(key, 1, -1)
-	cache.UpdateAfter(key, 100*time.Millisecond, func() any {
+	cache.UpdateLater(key, 100*time.Millisecond, func() any {
 		slog.Debug("--TestUpdateWait--")
 		time.Sleep(1 * time.Second)
 		return 2
@@ -116,7 +116,7 @@ func TestUpdateWait2(t *testing.T) {
 	key := "aaa"
 	cache := NewCache(true)
 	cache.Set(key, 1, -1)
-	cache.UpdateAfter(key, 100*time.Millisecond, func() any {
+	cache.UpdateLater(key, 100*time.Millisecond, func() any {
 		slog.Debug("--TestUpdateWait2--")
 		time.Sleep(1 * time.Second)
 		return 2
@@ -144,7 +144,7 @@ func TestUpdateNotWait(t *testing.T) {
 	key := "aaa"
 	cache := NewCache(false)
 	cache.Set(key, 1, -1)
-	cache.UpdateAfter(key, 100*time.Millisecond, func() any {
+	cache.UpdateLater(key, 100*time.Millisecond, func() any {
 		slog.Debug("--TestUpdateNotWait--")
 		time.Sleep(1 * time.Second)
 		return 2
