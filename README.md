@@ -1,4 +1,5 @@
 # updatecache
+[![golang-ci](https://github.com/vearne/updatecache/actions/workflows/golang-ci.yml/badge.svg)](https://github.com/vearne/updatecache/actions/workflows/golang-ci.yml)
 
 ## Overview
 The purpose of updatecache is to update the cache conveniently.
