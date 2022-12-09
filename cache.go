@@ -130,7 +130,7 @@ func (c *LocalCache) DynamicUpdateLater(key any, cf CalcTimeForNextUpdateFunc, g
 //  2. then use GetValueFunc to get value
 //  3. update item
 func (c *LocalCache) UpdateLater(key any, d time.Duration, getValueFunc GetValueFunc) {
-	item, ok := c.getItem(key)
+	cacheItem, ok := c.getItem(key)
 	if !ok {
 		return
 	}
@@ -167,12 +167,12 @@ func (c *LocalCache) UpdateLater(key any, d time.Duration, getValueFunc GetValue
 		slog.Debug("[end]update item after %v", d)
 	})
 
-	if item.updateTimer != nil {
-		if !item.updateTimer.Stop() {
-			<-item.updateTimer.C
+	if cacheItem.updateTimer != nil {
+		if !cacheItem.updateTimer.Stop() {
+			<-cacheItem.updateTimer.C
 		}
-		item.updateTimer.Reset(d)
+		cacheItem.updateTimer.Reset(d)
 	} else {
-		item.updateTimer = timer
+		cacheItem.updateTimer = timer
 	}
 }
