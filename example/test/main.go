@@ -23,7 +23,7 @@ func main() {
 		atomic.AddUint32(&value, 1)
 		return atomic.LoadUint32(&value)
 	})
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 30; i++ {
 		time.Sleep(500 * time.Millisecond)
 		log.Println(c.Get(key))
 	}

@@ -2,7 +2,7 @@ package updatecache
 
 import (
 	"sync"
-	"sync/atomic"
+	"time"
 )
 
 type Item struct {
@@ -10,16 +10,16 @@ type Item struct {
 	value any
 	cond  *sync.Cond
 	// data version
-	version   uint32
-	freshFlag bool
-	cf        CalcTimeForNextUpdateFunc
+	freshFlag   bool
+	cf          CalcTimeForNextUpdateFunc
+	expireTimer *time.Timer
+	updateTimer *time.Timer
 }
 
 func NewItem(key, value any) *Item {
 	item := &Item{}
 	item.key = key
 	item.value = value
-	atomic.StoreUint32(&item.version, 0)
 	item.cond = sync.NewCond(new(sync.Mutex))
 	item.freshFlag = true
 	return item

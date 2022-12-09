@@ -3,7 +3,6 @@ package updatecache
 import (
 	slog "github.com/vearne/simplelog"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -39,7 +38,6 @@ func (c *LocalCache) Set(key any, value any, d time.Duration) {
 	} else {
 		item.cond.L.Lock()
 		item.value = value
-		atomic.AddUint32(&item.version, 1)
 		// fresh
 		item.freshFlag = true
 		item.cond.L.Unlock()
@@ -47,17 +45,19 @@ func (c *LocalCache) Set(key any, value any, d time.Duration) {
 	}
 
 	if d >= 0 {
-		target := atomic.LoadUint32(&item.version)
-		time.AfterFunc(d, func() {
-			version := atomic.LoadUint32(&item.version)
-			// item may be updated or refreshed
-			if target < version {
-				return
-			}
+		timer := time.AfterFunc(d, func() {
 			c.dataMu.Lock()
 			defer c.dataMu.Unlock()
 			delete(c.m, key)
 		})
+		if item.expireTimer != nil {
+			if !item.expireTimer.Stop() {
+				<-item.expireTimer.C
+			}
+			item.expireTimer.Reset(d)
+		} else {
+			item.expireTimer = timer
+		}
 	}
 }
 
@@ -92,7 +92,7 @@ func (c *LocalCache) StopLaterUpdate(key any) {
 	}
 
 	item.cf = nil
-	atomic.AddUint32(&item.version, 1)
+	item.updateTimer.Stop()
 }
 
 func (c *LocalCache) Get(key any) any {
@@ -130,17 +130,12 @@ func (c *LocalCache) DynamicUpdateLater(key any, cf CalcTimeForNextUpdateFunc, g
 //  2. then use GetValueFunc to get value
 //  3. update item
 func (c *LocalCache) UpdateLater(key any, d time.Duration, getValueFunc GetValueFunc) {
-	if d < 0 {
-		return
-	}
-
 	item, ok := c.getItem(key)
 	if !ok {
 		return
 	}
 
-	target := atomic.LoadUint32(&item.version)
-	time.AfterFunc(d, func() {
+	timer := time.AfterFunc(d, func() {
 		slog.Debug("[start]update item after %v", d)
 		item, ok := c.getItem(key)
 		// item may be removed
@@ -148,12 +143,6 @@ func (c *LocalCache) UpdateLater(key any, d time.Duration, getValueFunc GetValue
 			return
 		}
 
-		version := atomic.LoadUint32(&item.version)
-		// item may be updated or refreshed
-		slog.Debug("target:%v, version:%v", target, version)
-		if target < version {
-			return
-		}
 		// stale
 		item.cond.L.Lock()
 		item.freshFlag = false
@@ -163,7 +152,6 @@ func (c *LocalCache) UpdateLater(key any, d time.Duration, getValueFunc GetValue
 
 		item.cond.L.Lock()
 		item.value = value
-		atomic.AddUint32(&item.version, 1)
 		// fresh
 		item.freshFlag = true
 		slog.Debug("item:%p, f():%v", item, item.value)
@@ -178,4 +166,13 @@ func (c *LocalCache) UpdateLater(key any, d time.Duration, getValueFunc GetValue
 
 		slog.Debug("[end]update item after %v", d)
 	})
+
+	if item.updateTimer != nil {
+		if !item.updateTimer.Stop() {
+			<-item.updateTimer.C
+		}
+		item.updateTimer.Reset(d)
+	} else {
+		item.updateTimer = timer
+	}
 }

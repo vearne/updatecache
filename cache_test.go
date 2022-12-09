@@ -39,18 +39,6 @@ func TestSet2(t *testing.T) {
 	assert.Equal(t, 2, value, "get value from cache")
 }
 
-func TestVersion(t *testing.T) {
-	key := "aaa"
-	cache := NewCache(true)
-	cache.Set(key, 1, -1)
-	cache.Set(key, 2, -1)
-	cache.Set(key, 3, -1)
-	item, ok := cache.getItem(key)
-	if ok {
-		assert.Equal(t, uint32(2), item.version, "check version")
-	}
-}
-
 func TestVersion2(t *testing.T) {
 	key := "aaa"
 	cache := NewCache(true)
@@ -65,10 +53,6 @@ func TestVersion2(t *testing.T) {
 	}()
 
 	time.Sleep(300 * time.Millisecond)
-	item, ok := cache.getItem(key)
-	if ok {
-		assert.Equal(t, uint32(2), item.version, "check version")
-	}
 	assert.Equal(t, 3, cache.Get(key), "check value")
 }
 
@@ -86,10 +70,7 @@ func TestCancelUpdateAfter(t *testing.T) {
 	}()
 
 	time.Sleep(300 * time.Millisecond)
-	item, _ := cache.getItem(key)
-
-	assert.Equal(t, uint32(1), item.version, "check version")
-	assert.Equal(t, 3, cache.Get(key), "check value")
+	assert.Equal(t, 2, cache.Get(key), "check value")
 }
 
 func TestUpdateWait(t *testing.T) {
