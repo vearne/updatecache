@@ -27,6 +27,30 @@ func NewCache(waitUpdate bool) *LocalCache {
 /*
 	If d is less than 0, the item does not expire
 */
+func (c *LocalCache) SetIfNotExist(key any, value any, d time.Duration) {
+	c.dataMu.Lock()
+	defer c.dataMu.Unlock()
+
+	item, ok := c.m[key]
+	if !ok {
+		item = NewItem(key, value)
+		c.m[key] = item
+	}
+
+	if d >= 0 {
+		timer := time.AfterFunc(d, func() {
+			c.dataMu.Lock()
+			defer c.dataMu.Unlock()
+			delete(c.m, key)
+		})
+
+		item.expireTimer = timer
+	}
+}
+
+/*
+	If d is less than 0, the item does not expire
+*/
 func (c *LocalCache) Set(key any, value any, d time.Duration) {
 	c.dataMu.Lock()
 	defer c.dataMu.Unlock()
@@ -38,8 +62,7 @@ func (c *LocalCache) Set(key any, value any, d time.Duration) {
 	} else {
 		item.cond.L.Lock()
 		item.value = value
-		// fresh
-		item.freshFlag = true
+		item.updatingFlag = false
 		item.cond.L.Unlock()
 		item.cond.Broadcast()
 	}
@@ -104,7 +127,7 @@ func (c *LocalCache) Get(key any) any {
 	item.cond.L.Lock()
 	defer item.cond.L.Unlock()
 	if c.waitUpdate {
-		for !item.freshFlag {
+		for item.updatingFlag {
 			item.cond.Wait()
 		}
 	}
@@ -143,17 +166,15 @@ func (c *LocalCache) UpdateLater(key any, d time.Duration, getValueFunc GetValue
 			return
 		}
 
-		// stale
 		item.cond.L.Lock()
-		item.freshFlag = false
+		item.updatingFlag = true
 		item.cond.L.Unlock()
 
 		value := getValueFunc()
 
 		item.cond.L.Lock()
 		item.value = value
-		// fresh
-		item.freshFlag = true
+		item.updatingFlag = false
 		slog.Debug("item:%p, f():%v", item, item.value)
 		item.cond.L.Unlock()
 

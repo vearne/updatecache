@@ -9,11 +9,11 @@ type Item struct {
 	key   any
 	value any
 	cond  *sync.Cond
-	// data version
-	freshFlag   bool
-	cf          CalcTimeForNextUpdateFunc
-	expireTimer *time.Timer
-	updateTimer *time.Timer
+	// update in progress
+	updatingFlag bool
+	cf           CalcTimeForNextUpdateFunc
+	expireTimer  *time.Timer
+	updateTimer  *time.Timer
 }
 
 func NewItem(key, value any) *Item {
@@ -21,6 +21,6 @@ func NewItem(key, value any) *Item {
 	item.key = key
 	item.value = value
 	item.cond = sync.NewCond(new(sync.Mutex))
-	item.freshFlag = true
+	item.updatingFlag = false
 	return item
 }
