@@ -24,6 +24,39 @@ func NewCache(waitUpdate bool) *LocalCache {
 	return &c
 }
 
+func (c *LocalCache) FirstLoad(key any, defaultValue any, gf GetValueFunc, d time.Duration) any {
+	item := NewItem(key, defaultValue)
+	item.cond.L.Lock()
+	item.updatingFlag = true
+	item.cond.L.Unlock()
+
+	c.dataMu.Lock()
+	defer c.dataMu.Unlock()
+
+	_, ok := c.m[key]
+	if !ok {
+		c.m[key] = item
+		if d >= 0 {
+			timer := time.AfterFunc(d, func() {
+				c.dataMu.Lock()
+				defer c.dataMu.Unlock()
+				delete(c.m, key)
+			})
+			item.expireTimer = timer
+		}
+		go func() {
+			// get value from backend
+			value := gf()
+			item.cond.L.Lock()
+			item.value = value
+			item.updatingFlag = false
+			item.cond.L.Unlock()
+			item.cond.Broadcast()
+		}()
+	}
+	return c.Get(key)
+}
+
 /*
 	If d is less than 0, the item does not expire
 */
@@ -35,16 +68,15 @@ func (c *LocalCache) SetIfNotExist(key any, value any, d time.Duration) {
 	if !ok {
 		item = NewItem(key, value)
 		c.m[key] = item
-	}
+		if d >= 0 {
+			timer := time.AfterFunc(d, func() {
+				c.dataMu.Lock()
+				defer c.dataMu.Unlock()
+				delete(c.m, key)
+			})
 
-	if d >= 0 {
-		timer := time.AfterFunc(d, func() {
-			c.dataMu.Lock()
-			defer c.dataMu.Unlock()
-			delete(c.m, key)
-		})
-
-		item.expireTimer = timer
+			item.expireTimer = timer
+		}
 	}
 }
 
@@ -114,7 +146,9 @@ func (c *LocalCache) StopLaterUpdate(key any) {
 		return
 	}
 
+	item.cond.L.Lock()
 	item.cf = nil
+	item.cond.L.Unlock()
 	item.updateTimer.Stop()
 }
 
@@ -145,8 +179,12 @@ func (c *LocalCache) DynamicUpdateLater(key any, cf CalcTimeForNextUpdateFunc, g
 	if !ok {
 		return
 	}
-	item.cf = cf
-	c.UpdateLater(key, cf(item.value), gf)
+	item.cond.L.Lock()
+	if item.cf != nil {
+		item.cf = cf
+		c.UpdateLater(key, cf(item.value), gf)
+	}
+	item.cond.L.Unlock()
 }
 
 //  1. wait d
