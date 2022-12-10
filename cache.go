@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-type GetValueFunc func() any
+type GetValueFunc func() (value any, err error)
 
 //Calculate the waiting time until the next data update
 type CalcTimeForNextUpdateFunc func(value any) time.Duration
@@ -31,8 +31,6 @@ func (c *LocalCache) FirstLoad(key any, defaultValue any, gf GetValueFunc, d tim
 	item.cond.L.Unlock()
 
 	c.dataMu.Lock()
-	defer c.dataMu.Unlock()
-
 	_, ok := c.m[key]
 	if !ok {
 		c.m[key] = item
@@ -46,14 +44,18 @@ func (c *LocalCache) FirstLoad(key any, defaultValue any, gf GetValueFunc, d tim
 		}
 		go func() {
 			// get value from backend
-			value := gf()
-			item.cond.L.Lock()
-			item.value = value
-			item.updatingFlag = false
-			item.cond.L.Unlock()
-			item.cond.Broadcast()
+			value, err := gf()
+			if err == nil {
+				item.cond.L.Lock()
+				item.value = value
+				item.updatingFlag = false
+				item.cond.L.Unlock()
+				item.cond.Broadcast()
+			}
 		}()
 	}
+	c.dataMu.Unlock()
+
 	return c.Get(key)
 }
 
@@ -165,11 +167,11 @@ func (c *LocalCache) Get(key any) any {
 			item.cond.Wait()
 		}
 	}
-	slog.Debug("Get-item:%p", item)
 	return item.value
 }
 
 /*
+	Notice: Item and CalcTimeForNextUpdateFunc, GetValueFunc will only be bound once.
 	1. Calculate the waiting time until the next data update with CalcTimeForNextUpdateFunc
 	2. then use GetValueFunc to get value
 	3. update item
@@ -180,7 +182,7 @@ func (c *LocalCache) DynamicUpdateLater(key any, cf CalcTimeForNextUpdateFunc, g
 		return
 	}
 	item.cond.L.Lock()
-	if item.cf != nil {
+	if item.cf == nil {
 		item.cf = cf
 		c.UpdateLater(key, cf(item.value), gf)
 	}
@@ -208,15 +210,17 @@ func (c *LocalCache) UpdateLater(key any, d time.Duration, getValueFunc GetValue
 		item.updatingFlag = true
 		item.cond.L.Unlock()
 
-		value := getValueFunc()
+		value, err := getValueFunc()
 
-		item.cond.L.Lock()
-		item.value = value
-		item.updatingFlag = false
-		slog.Debug("item:%p, f():%v", item, item.value)
-		item.cond.L.Unlock()
+		if err == nil {
+			item.cond.L.Lock()
+			item.value = value
+			item.updatingFlag = false
+			slog.Debug("item:%p, f():%v", item, item.value)
+			item.cond.L.Unlock()
 
-		item.cond.Broadcast()
+			item.cond.Broadcast()
+		}
 
 		// plan for next update
 		if item.cf != nil {

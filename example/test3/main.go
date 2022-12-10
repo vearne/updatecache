@@ -1,31 +1,3 @@
-# updatecache
-[![golang-ci](https://github.com/vearne/updatecache/actions/workflows/golang-ci.yml/badge.svg)](https://github.com/vearne/updatecache/actions/workflows/golang-ci.yml)
-
-## Overview
-The purpose of updatecache is to update the cache conveniently.
-When executing a query to the backend to update the cache, 
-other query coroutines can choose to wait for the query to complete or
-directly use the value in the current cache.
-
-## Install
-```
-go get github.com/vearne/updatecache
-```
-
-## Use environment variables to set log level
-optional value: debug | info | warn | error
-```
-export SIMPLE_LOG_LEVEL=debug
-```
-## Unit Test
-```
-go test .
-go test -v .
-go test -run TestFirstLoad ./
-```
-
-## Example
-```
 package main
 
 import (
@@ -65,4 +37,3 @@ func main() {
 	}
 
 }
-```

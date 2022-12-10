@@ -15,13 +15,12 @@ func main() {
 	key := "aaa"
 	c := cache.NewCache(true)
 	c.Set(key, 1, 10*time.Second)
-	var value uint32
+	var counter uint32
 	// optional
-	c.DynamicUpdateLater(key, calcuDuration, func() any {
+	c.DynamicUpdateLater(key, calcuDuration, func() (any, error) {
 		// get value from backend(for example: MySQL, MongoDB or other application)
 		log.Println("get value from backend...")
-		atomic.AddUint32(&value, 1)
-		return atomic.LoadUint32(&value)
+		return atomic.AddUint32(&counter, 1), nil
 	})
 	for i := 0; i < 30; i++ {
 		time.Sleep(500 * time.Millisecond)
