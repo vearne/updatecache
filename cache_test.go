@@ -176,7 +176,7 @@ func TestFirstLoadUseDefault(t *testing.T) {
 			defer wg.Done()
 			var value any
 			if !cache.Contains(key) {
-				value = cache.FirstLoad(key,
+				cache.FirstLoad(key,
 					1,
 					func() (any, error) {
 						time.Sleep(time.Second)
