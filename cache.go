@@ -52,6 +52,7 @@ func (c *LocalCache) FirstLoad(key any, defaultValue any, gf GetValueFunc, d tim
 		}
 		go func() {
 			if c.limiter != nil {
+				//nolint: errcheck
 				c.limiter.Wait(context.Background())
 			}
 			// get value from backend
@@ -222,6 +223,7 @@ func (c *LocalCache) UpdateLater(key any, d time.Duration, getValueFunc GetValue
 		item.cond.L.Unlock()
 
 		if c.limiter != nil {
+			//nolint: errcheck
 			c.limiter.Wait(context.Background())
 		}
 		value, err := getValueFunc()
