@@ -13,7 +13,7 @@ func calcuDuration(value any) time.Duration {
 
 func main() {
 	key := "aaa"
-	c := cache.NewCache(true)
+	c := cache.NewCache(true, cache.WithRateLimit(200, 1))
 	var counter uint32 = 2
 	if !c.Contains(key) {
 		result := c.FirstLoad(key,

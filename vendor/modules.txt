@@ -12,6 +12,9 @@ github.com/stretchr/testify/assert
 # github.com/vearne/simplelog v0.0.1
 ## explicit; go 1.18
 github.com/vearne/simplelog
+# golang.org/x/time v0.3.0
+## explicit
+golang.org/x/time/rate
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3

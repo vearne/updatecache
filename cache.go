@@ -1,7 +1,9 @@
 package updatecache
 
 import (
+	"context"
 	slog "github.com/vearne/simplelog"
+	"golang.org/x/time/rate"
 	"sync"
 	"time"
 )
@@ -15,12 +17,18 @@ type LocalCache struct {
 	m          map[any]*Item
 	dataMu     sync.RWMutex
 	waitUpdate bool
+	// limiter Limit the execution frequency of GetValueFunc
+	limiter *rate.Limiter
 }
 
-func NewCache(waitUpdate bool) *LocalCache {
+func NewCache(waitUpdate bool, opts ...Option) *LocalCache {
 	c := LocalCache{}
 	c.m = make(map[any]*Item)
 	c.waitUpdate = waitUpdate
+	// Loop through each option
+	for _, opt := range opts {
+		opt(&c)
+	}
 	return &c
 }
 
@@ -43,6 +51,9 @@ func (c *LocalCache) FirstLoad(key any, defaultValue any, gf GetValueFunc, d tim
 			item.expireTimer = timer
 		}
 		go func() {
+			if c.limiter != nil {
+				c.limiter.Wait(context.Background())
+			}
 			// get value from backend
 			value, err := gf()
 			if err == nil {
@@ -210,6 +221,9 @@ func (c *LocalCache) UpdateLater(key any, d time.Duration, getValueFunc GetValue
 		item.updatingFlag = true
 		item.cond.L.Unlock()
 
+		if c.limiter != nil {
+			c.limiter.Wait(context.Background())
+		}
 		value, err := getValueFunc()
 
 		if err == nil {
