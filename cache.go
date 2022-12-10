@@ -66,9 +66,9 @@ func (c *LocalCache) SetIfNotExist(key any, value any, d time.Duration) {
 	c.dataMu.Lock()
 	defer c.dataMu.Unlock()
 
-	item, ok := c.m[key]
+	_, ok := c.m[key]
 	if !ok {
-		item = NewItem(key, value)
+		item := NewItem(key, value)
 		c.m[key] = item
 		if d >= 0 {
 			timer := time.AfterFunc(d, func() {
