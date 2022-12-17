@@ -120,13 +120,9 @@ func (c *LocalCache) Set(key any, value any, d time.Duration) {
 			delete(c.m, key)
 		})
 		if item.expireTimer != nil {
-			if !item.expireTimer.Stop() {
-				<-item.expireTimer.C
-			}
-			item.expireTimer.Reset(d)
-		} else {
-			item.expireTimer = timer
+			item.expireTimer.Stop()
 		}
+		item.expireTimer = timer
 	}
 }
 
@@ -162,8 +158,9 @@ func (c *LocalCache) StopLaterUpdate(key any) {
 
 	item.cond.L.Lock()
 	item.cf = nil
-	item.cond.L.Unlock()
 	item.updateTimer.Stop()
+	item.cond.L.Unlock()
+
 }
 
 func (c *LocalCache) Get(key any) any {
@@ -232,7 +229,8 @@ func (c *LocalCache) UpdateLater(key any, d time.Duration, getValueFunc GetValue
 			item.cond.L.Lock()
 			item.value = value
 			item.updatingFlag = false
-			slog.Debug("item:%p, f():%v", item, item.value)
+
+			slog.Debug("f():%v", item.value)
 			item.cond.L.Unlock()
 
 			item.cond.Broadcast()
@@ -247,11 +245,7 @@ func (c *LocalCache) UpdateLater(key any, d time.Duration, getValueFunc GetValue
 	})
 
 	if cacheItem.updateTimer != nil {
-		if !cacheItem.updateTimer.Stop() {
-			<-cacheItem.updateTimer.C
-		}
-		cacheItem.updateTimer.Reset(d)
-	} else {
-		cacheItem.updateTimer = timer
+		cacheItem.updateTimer.Stop()
 	}
+	cacheItem.updateTimer = timer
 }
