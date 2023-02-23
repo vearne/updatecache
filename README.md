@@ -8,7 +8,7 @@ The purpose of updatecache is to update the cache conveniently.
 ## Feature
 * prevent cache breakdown
 * perform regular update of the cache
-* limit the frequency of access to the upstream
+* limit the frequency of access to the upstream(single flight)
 
 
 
