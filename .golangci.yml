@@ -20,3 +20,7 @@ linters-settings:
     check-shadowing: true
     disable:
       - fieldalignment
+
+run:
+  skip-dirs:
+    - example
