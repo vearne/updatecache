@@ -64,7 +64,7 @@ func NewCache(waitUpdate bool, opts ...Option) *LocalCache {
 						return
 					}
 
-					value, _ := oneUpdate(task.c, task.key, task.getValueFunc)
+					value, _ := task.c.oneUpdate(task.key, task.getValueFunc)
 					c.nextUpdate <- updateTask{
 						d:            cacheItem.cf(value),
 						key:          task.key,
@@ -259,7 +259,7 @@ func (c *LocalCache) DynamicUpdateLater(key any, cf CalcTimeForNextUpdateFunc, g
 	})
 }
 
-func oneUpdate(c *LocalCache, key any, getValueFunc GetValueFunc) (any, any) {
+func (c *LocalCache) oneUpdate(key any, getValueFunc GetValueFunc) (any, any) {
 	item, ok := c.getItem(key)
 	// item may be removed
 	if !ok {
