@@ -49,7 +49,7 @@ func NewCache(waitUpdate bool, opts ...Option) *LocalCache {
 				return
 			case task := <-c.nextUpdate:
 				slog.Debug("task:%v", task)
-				cacheItem, ok := c.getItem(task.key)
+				item, ok := c.getItem(task.key)
 				if !ok {
 					return
 				}
@@ -73,7 +73,7 @@ func NewCache(waitUpdate bool, opts ...Option) *LocalCache {
 						dataVersion:  task.dataVersion + 1,
 					}
 				})
-				cacheItem.updateTimer = timer
+				item.updateTimer = timer
 			}
 		}
 	}()
